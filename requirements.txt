@@ -1,0 +1,10 @@
+pandas
+streamlit
+SQLAlchemy
+psycopg2-binary          # Postgres용 드라이버
+requests
+beautifulsoup4
+plotly
+ydata-profiling
+streamlit-pandas-profiling
+geopy
