@@ -3,6 +3,12 @@
 ## Overview
 This project delivers a **fully‑automated data pipeline** that downloads publicly‑available hospital‑separation tables from the Australian Institute of Health & Welfare (AIHW), cleans and normalises them into a relational schema, and then serves an **interactive Streamlit dashboard** with rich visual analytics and auto‑generated insights.
 
+## Project Goal 🎯
+Build a **fully–automated public‑health data platform** that:
+1. Scrapes the latest _Admitted‑Patient‑Care_ tables published by AIHW.  
+2. Cleans & normalises the spreadsheets into tidy **staging**/**clean** tables in PostgreSQL.  
+3. Serves an interactive **Streamlit** dashboard (7 graphs + profiling) for rapid exploratory analysis.
+
 * **ETL (Python)** – Web‑scrapes/ingests Excel workbooks, detects headers on the fly, removes noise, converts values to numeric, and writes two tables to PostgreSQL:
   * `staging_admissions`   ↳ raw tidy rows
   * `clean_admissions`    ↳ aggregated by every categorical dimension
@@ -16,6 +22,18 @@ This project delivers a **fully‑automated data pipeline** that downloads publi
 - 📊 **Interactive Dashboard** – Sidebar filters on every categorical column, real‑time Plotly charts, AUS map.
 - 🗒 **Insight Generator** – Tiny NLP summary highlights top states, categories, YoY change.
 - 🧮 **Optional Profiling** – Generates an HTML report inside Streamlit.
+
+## Stack ⚙️
+| Layer | Tech | Notes |
+|-------|------|-------|
+| Orchestration | _one‑shot script_ (`main.py`) | Simple cron/CI friendly |
+| Extraction | `requests`, `BeautifulSoup` | Finds `*-tables‑access.xlsx` links |
+| Transformation | `pandas`, `openpyxl` | Dynamic header detection, robust melt, dtype harmonisation |
+| Load | `SQLAlchemy → PostgreSQL` | `staging_admissions` & `clean_admissions` |
+| Viz / App | `Streamlit`, `Plotly Express` | 7 widgets, auto‑insights, optional `ydata‑profiling` |
+| Packaging | `pipx venv`, `.env` | `DB_URL` env var expected |
+
+---
 
 ## Prerequisites
 | Tool | Version | Notes |
@@ -48,7 +66,7 @@ DB_URL=postgresql+psycopg2://user:pass@localhost:5432/health
 ## Initialising the Database
 No manual DDL is needed; the ETL script will create both tables if they do not exist. Optionally seed permissions & indices with `schema.sql`.
 
-## Usage
+## Usage 🚀
 ### 1. Run the ETL
 ```bash
 python etl.py
@@ -61,7 +79,7 @@ streamlit run streamlit_app.py
 ```
 The app opens at <http://localhost:8501>.
 
-## Project Structure
+## Project Structure 📂
 ```
 aihw‑hospital‑etl/
 ├── etl.py              # Extract‑Transform‑Load pipeline
@@ -80,7 +98,7 @@ aihw‑hospital‑etl/
 | `state` | TEXT | AUS state code (NSW, VIC …) |
 | `category` | TEXT | ICD‑10 chapter or other grouping |
 | `principal_diagnosis` | TEXT | Detailed diagnosis (if available) |
-| _…dynamic dims…_ | TEXT | Other categorical dimensions (care_type, etc.) |
+| `_…dynamic dims…_` | TEXT | Other categorical dimensions (care_type, etc.) |
 | `separations` | NUMERIC | Rate per 1 000 population |
 
 ### clean_admissions
