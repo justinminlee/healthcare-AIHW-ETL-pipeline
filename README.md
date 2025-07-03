@@ -1,100 +1,112 @@
-# Australian Hospital Separations – Data Pipeline & Interactive Dashboard
+# Australian Hospital Separations ETL & Streamlit Dashboard
 
-> **Stable release v5 – July 2025**  
-> End‑to‑end reproducible workflow: _web‑scrape → PostgreSQL ETL → Streamlit analytics._
+## Overview
+This project delivers a **fully‑automated data pipeline** that downloads publicly‑available hospital‑separation tables from the Australian Institute of Health & Welfare (AIHW), cleans and normalises them into a relational schema, and then serves an **interactive Streamlit dashboard** with rich visual analytics and auto‑generated insights.
 
----
+* **ETL (Python)** – Web‑scrapes/ingests Excel workbooks, detects headers on the fly, removes noise, converts values to numeric, and writes two tables to PostgreSQL:
+  * `staging_admissions`   ↳ raw tidy rows
+  * `clean_admissions`    ↳ aggregated by every categorical dimension
+* **Analytics (Streamlit)** – When you launch the app it pulls from `clean_admissions` (or falls back to `staging_admissions` if the former is empty) and renders **7 production‑ready visuals** (bar, line, pie, heat‑map, treemap, choropleth, box‑plot) plus key‑takeaway text.
+* **Optional Data‑Profiling** – A one‑click pandas‑profiling report for deeper EDA (gracefully skipped if the `numba`/`visions` dependency chain fails under Python 3.12).
 
-## 1 · Project Goal 🎯
-Build a **fully–automated public‑health data platform** that:
-1. Scrapes the latest _Admitted‑Patient‑Care_ tables published by AIHW.  
-2. Cleans & normalises the spreadsheets into tidy **staging**/**clean** tables in PostgreSQL.  
-3. Serves an interactive **Streamlit** dashboard (7 graphs + profiling) for rapid exploratory analysis.
+## Features
+- 📥 **Robust Extraction** – Dynamic header detection; supports new AIHW workbook versions without code edits.
+- 🧹 **Smart Transformation** – Auto‑deduplicates column names, harmonises categories, coerces numeric types.
+- 🗄 **PostgreSQL Load** – Idempotent writes using SQLAlchemy with automatic upserts.
+- 📊 **Interactive Dashboard** – Sidebar filters on every categorical column, real‑time Plotly charts, AUS map.
+- 🗒 **Insight Generator** – Tiny NLP summary highlights top states, categories, YoY change.
+- 🧮 **Optional Profiling** – Generates an HTML report inside Streamlit.
 
----
+## Prerequisites
+| Tool | Version | Notes |
+|------|---------|-------|
+| **Python** | 3.9 – 3.11 recommended | 3.12 works but skip profiling or pin `numba<0.59` |
+| **PostgreSQL** | ≥ 12 | Any connection string supported by SQLAlchemy |
+| **AIHW Access** | None | Data is public; no API key required |
 
-## 2 · Stack ⚙️
-| Layer | Tech | Notes |
-|-------|------|-------|
-| Orchestration | _one‑shot script_ (`main.py`) | Simple cron/CI friendly |
-| Extraction | `requests`, `BeautifulSoup` | Finds `*-tables‑access.xlsx` links |
-| Transformation | `pandas`, `openpyxl` | Dynamic header detection, robust melt, dtype harmonisation |
-| Load | `SQLAlchemy → PostgreSQL` | `staging_admissions` & `clean_admissions` |
-| Viz / App | `Streamlit`, `Plotly Express` | 7 widgets, auto‑insights, optional `ydata‑profiling` |
-| Packaging | `pipx venv`, `.env` | `DB_URL` env var expected |
-
----
-
-## 3 · Repository Layout 📂
-
-```text
-├── etl.py                 # Library‑level helpers (imported by main.py)
-├── main.py                # ⚡ Single‑shot ETL entrypoint
-├── streamlit_app.py       # Dashboard (auto detects clean vs staging)
-├── requirements.txt
-└── README.md              # You are here
-```
-
----
-
-## 4 · Setup & Quick‑start 🚀
-
+## Installation
 ```bash
-git clone https://github.com/your‑org/au‑hospital‑separations.git
-cd au‑hospital‑separations
-python3 -m venv .venv && source .venv/bin/activate
+# 1 — Clone
+git clone https://github.com/your‑org/aihw‑hospital‑etl.git
+cd aihw‑hospital‑etl
+
+# 2 — Virtual‑env
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+
+# 3 — Dependencies
 pip install -r requirements.txt
 
-export DB_URL=postgresql+psycopg2://user:pass@localhost:5432/health
-python main.py              # ▶ Run ETL (≈1‑2 min, ~250 k rows)
+# 4 — Environment
+cp .env.example .env  # then edit
+```
+### .env
+```
+DB_URL=postgresql+psycopg2://user:pass@localhost:5432/health
+```
+
+## Initialising the Database
+No manual DDL is needed; the ETL script will create both tables if they do not exist. Optionally seed permissions & indices with `schema.sql`.
+
+## Usage
+### 1. Run the ETL
+```bash
+python etl.py
+# ➜ Extracted 314 672 rows – loading …
+# ✅ ETL completed.
+```
+### 2. Launch the Dashboard
+```bash
 streamlit run streamlit_app.py
 ```
+The app opens at <http://localhost:8501>.
 
-_Optional_: for pandas‑profiling on Python ≥3.12 install  
-```bash
-pip install "numba<0.59" "ydata-profiling<4.7"
+## Project Structure
+```
+aihw‑hospital‑etl/
+├── etl.py              # Extract‑Transform‑Load pipeline
+├── streamlit_app.py    # Dashboard & insights
+├── requirements.txt    # Python dependencies
+├── .env.example        # Env vars template
+├── schema.sql          # Optional indices / grants
+└── README.md           # This file
 ```
 
----
+## Data Model
+### staging_admissions
+| Column | Type | Description |
+|--------|------|-------------|
+| `year` | INT | Financial year (e.g. 2023) |
+| `state` | TEXT | AUS state code (NSW, VIC …) |
+| `category` | TEXT | ICD‑10 chapter or other grouping |
+| `principal_diagnosis` | TEXT | Detailed diagnosis (if available) |
+| _…dynamic dims…_ | TEXT | Other categorical dimensions (care_type, etc.) |
+| `separations` | NUMERIC | Rate per 1 000 population |
 
-## 5 · ETL Highlights 🛠
+### clean_admissions
+Same columns but **aggregated** (`GROUP BY year, state, *all categoricals* → SUM(separations)`).
 
-* **Smart header locator** – scans first 40 rows for ≥2 recognised state codes.  
-* **Adaptive ID columns** – sheet‑specific categorical columns are auto‑detected.  
-* **Tuple‑string scrubber** – removes `("(foo", 1.23)` artefacts.  
-* **Two‑tier schema**  
-  * `staging_admissions` – raw long‑format rows (diagnosis, state, year, …).  
-  * `clean_admissions` – aggregated on all categorical dimensions (fast queries).
+## Running in Production
+- **Scheduler**: Hook `python etl.py` in cron/Airflow for monthly refresh.
+- **Docker**: Copy the sample `Dockerfile`/`docker‑compose.yml` for containerised deployment.
+- **Metrics**: The app logs to stdout; pair with Prometheus/Grafana if needed.
 
----
+## Troubleshooting
+| Issue | Fix |
+|-------|-----|
+| "DB_URL env var not set" | Export `DB_URL` or add to `.env`. |
+| Duplicate columns error | ETL now auto‑dedups; re‑run ETL. |
+| Profiling fails under Py 3.12 | `pip install "numba<0.59"` or un‑tick the profiling button. |
 
-## 6 · Dashboard Features 📊
+## Future Enhancements
+- Auto‑download GeoJSON for precise choropleth maps.
+- Great Expectations data‑validation checkpoints.
+- CI/CD workflow (GitHub Actions) to lint, test, and deploy.
 
-1. **State bar‑chart** – total separations per state.  
-2. **Year trend lines** – multi‑state comparison.  
-3. **Category pie** – top‑10 ICD chapters.  
-4. **Heat‑map** – category × state matrix.  
-5. **Treemap** – ICD chapter → principal diagnosis hierarchy.  
-6. **Choropleth** – AU map colouring by separations.  
-7. **Box‑plot** – distribution of row‑level separations.
+## License
+MIT
 
-> **Auto‑insights**: concise bullet summary generated on every filter change.
-
----
-
-## 7 · Typical Insights 💡
-* NSW consistently records the highest separation counts (~1.8 M in 2023).  
-* *Diseases of the digestive system* dominate national inpatient activity.  
-* Remote & very‑remote areas show **3× higher** separation rates per 1000 pop.  
-* Since 2019 overall separations increased **+6.4 %**, mainly in QLD & WA.
-
----
-
-## 8 · Contributing 🤝
-
-PRs welcome! Please run `black . && isort . && flake8` before submitting.
-
----
-
-## 9 · License 📜
-[MIT](LICENSE) – free to use, fork & adapt.
+## Acknowledgements
+* **AIHW** – Source of open hospital‑separation data.
+* **Streamlit & Plotly** – Rapid interactive visualisation.
+* **pandas‑profiling** – Quick EDA inside the browser.
