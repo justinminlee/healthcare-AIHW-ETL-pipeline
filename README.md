@@ -69,7 +69,7 @@ No manual DDL is needed; the ETL script will create both tables if they do not e
 ## Usage 🚀
 ### 1. Run the ETL
 ```bash
-python etl.py
+python main.py
 # ➜ Extracted 314 672 rows – loading …
 # ✅ ETL completed.
 ```
@@ -82,7 +82,7 @@ The app opens at <http://localhost:8501>.
 ## Project Structure 📂
 ```
 aihw‑hospital‑etl/
-├── etl.py              # Extract‑Transform‑Load pipeline
+├── main.py              # Extract‑Transform‑Load pipeline
 ├── streamlit_app.py    # Dashboard & insights
 ├── requirements.txt    # Python dependencies
 ├── .env.example        # Env vars template
@@ -105,7 +105,7 @@ aihw‑hospital‑etl/
 Same columns but **aggregated** (`GROUP BY year, state, *all categoricals* → SUM(separations)`).
 
 ## Running in Production
-- **Scheduler**: Hook `python etl.py` in cron/Airflow for monthly refresh.
+- **Scheduler**: Hook `python main.py` in cron/Airflow for monthly refresh.
 - **Docker**: Copy the sample `Dockerfile`/`docker‑compose.yml` for containerised deployment.
 - **Metrics**: The app logs to stdout; pair with Prometheus/Grafana if needed.
 
